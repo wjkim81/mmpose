@@ -131,3 +131,6 @@ docs/**/modelzoo.md
 *.pth
 
 *.DS_Store
+
+# Visual Studio Code
+**/*.code-workspace
