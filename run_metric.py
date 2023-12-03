@@ -2,6 +2,8 @@ import os
 import os.path as osp
 import json
 import glob
+import platform
+# from pathlib import Path
 import argparse
 import cv2
 import numpy as np
@@ -28,11 +30,27 @@ def select_work_dir(work_dir, checkpoint):
     if checkpoint == 'last':
         with open(osp.join(chosen_dir, 'last_checkpoint')) as cf:
             pth_path = cf.readline()
+
+            # print('pth_path:', pth_path)
+
+            if platform.system() == 'Windows':
+                # print('Windows')
+                pth_path = pth_path.replace('/', '\\')
+            elif platform.system() == 'Linux':
+                # print('Linux')
+                pth_path = pth_path.replace('\\', '/')
+
+            else:
+                raise Error('Which operating system are you using?')
+
+            print('base pth_path:', pth_path)
+            pth = osp.basename(pth_path)
+            pth_path = osp.join(chosen_dir, pth)
     else:
-        with open(osp.join(chosen_dir, 'lest_checkpoint')) as cf:
-            pth_path = cf.readline()
-    pth = osp.basename(pth_path)
-    pth_path = osp.join(chosen_dir, pth)
+        with open(osp.join(chosen_dir, 'best_checkpoint')) as cf:
+            pth_path = glob.glob(osp.join(chosen_dir, 'best*.pth'))[0]
+
+
 
     print('config_path:', config_path)
     print('pth_path:', pth_path)
@@ -99,106 +117,130 @@ if __name__ == '__main__':
             annot_dict[img_id].append(ann)
         
     # print('image_list:', image_list)
+
+    cases = {}
     for img_data in image_list:
         file_name = img_data['file_name']
         img_id = img_data['id']
 
         img_path = osp.join(test_dir, file_name)
-        img_fn = file_name.replace('/', '-')
+        case, fi = file_name.split('/')
 
-        img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        print(f'case: {case}, fi: {fi}')
 
-        result_generator = inferencer(img_path)
-        # inferencer.visualize()
-        result = next(result_generator)
-        # print(result_generator)
+        if case not in cases:
+            cases[case] = [img_data]
+        else:
+            cases[case].append(img_data)
+
+
+
+
+    for case, case_images in cases.items():
+        # print(k, v)
+        # n_case = len(case_images)
+        img_volumes = []
         
-        predictions = result['predictions']
+        for img_data in case_images:
+            file_name = img_data['file_name']
+            img_id = img_data['id']
 
-        print('**************************')
-        # print('predictions:', predictions)
+            img_path = osp.join(test_dir, file_name)
+            # case, fi = file_name.split('/')
 
-        print('>>>>>>>>>>>>>>>>>>>>>>>>>>')
-        keypoints_pred = []
-        keypoints_gt = []
-        for preds in predictions:
-        #     print('preds:', preds)
-            for p in preds:
-        #         print('p', p)
-                keypoints_pred = p['keypoints']
-                keypoint_scores = p['keypoint_scores']
-                # print('keypoints:', keypoints_pred)
-                # print('keypoint_scores:', keypoint_scores)
+            # img_fn = file_name.replace('/', '-')
+            gray_img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED )
+            img_volumes.append(np.expand_dims(gray_img, axis=0))
 
-                keypoint_exist = False
-                for ks in keypoint_scores:
-                    if ks > 0.5: keypoint_exist = True
+            # img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+            # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-                if keypoint_exist:
-                    kp1 = [int(x + 0.5) for x in keypoints_pred[0]]
-                    kp2 = [int(x + 0.5) for x in keypoints_pred[1]]
-                    print('keypoint_scores:', keypoint_scores)
-                    print('predictions:', kp1, kp2)
-                    cv2.circle(img, kp1, 2, pred_color, -1)
-                    cv2.circle(img, kp1, 10, pred_color, 1)
-                    cv2.circle(img, kp2, 2, pred_color, -1)
-                    cv2.circle(img, kp2, 10, pred_color, 1)
-                    keypoints_pred.append((kp1, kp2))                    
-
-                
-
-                # for i, ks in enumerate(keypoint_scores):
-                #     if ks > args.thr:
-                #         kp1 = [int(x + 0.5) for x in keypoints_pred[i][0]]
-                #         kp2 = [int(x + 0.5) for x in keypoints_pred[i][1]]
-                #         print('keypoint_scores:', keypoint_scores)
-                #         print('predictions:', kp1, kp2)
-                #         cv2.circle(img, kp1, 2, pred_color, -1)
-                #         cv2.circle(img, kp2, 2, pred_color, -1)
-                #         keypoints_pred.append((kp1, kp2))
-
-
-        if img_id in annot_dict:
-            annots = annot_dict[img_id]
-
-            for ann in annots:
-                keypoint_gt = ann['keypoints']
-                print(keypoint_gt)
-                keypoints = get_keypoints(keypoint_gt)
-                print(keypoints)
-                keypoints_gt.append(keypoints)
-                cv2.circle(img, keypoints[0], 1, gt_color, 1)
-                cv2.circle(img, keypoints[0], 10, gt_color, 1)
-                cv2.circle(img, keypoints[1], 1, gt_color, 1)
-                cv2.circle(img, keypoints[1], 10, gt_color, 1)
-
-
-        if args.round2flat:
-            print('convert keypoint points in round view to flat view')
-        n_gt = len(keypoints_gt)
-        n_pred = len(keypoints_pred)
-
-        for kp_pair in keypoints_gt:
-            gt_interval = sorted([x[0] for x in kp_pair])
-            print('gt_interval:', gt_interval)
-
-        for kp_pair in keypoints_pred:
-            pred_interval = sorted([x[0] for x in kp_pair])
-            print('pred_interval:', pred_interval)
-
-        cv2.imshow('image', img)
-        cv2.waitKeyEx(1)
-        print(img_path, img.shape)
-
-
-        result_path = osp.join(save_dir, file_name.replace('/', '-'))
-        print(osp.abspath(result_path))
-        cv2.imwrite(result_path, img)
-        print('----------------------------')
-
+        img_volumes = np.concatenate(img_volumes, axis=0)
+        print('img_volumes.shape:', img_volumes.shape)
+        img_volumes_std = np.std(img_volumes, axis=1)
+        print('img_volumes_std.shape:', img_volumes_std.shape)
+        print('img_volumes_std.dtype:', img_volumes_std.dtype)
+        cv2.imshow('std volume', img_volumes_std)
+        cv2.waitKey()
         
+        # result_generator = inferencer(img_path)
+        # # inferencer.visualize()
+        # result = next(result_generator)
+        # # print(result_generator)
+        
+        # predictions = result['predictions']
 
-                               
+        # print('**************************')
+        # # print('predictions:', predictions)
+
+        # print('>>>>>>>>>>>>>>>>>>>>>>>>>>')
+        # keypoints_pred = []
+        # keypoints_gt = []
+
         # if img_id in annot_dict:
-            # print(annot_dict[img_id]
+        #     annots = annot_dict[img_id]
+
+        #     for ann in annots:
+        #         keypoint_gt = ann['keypoints']
+        #         print(keypoint_gt)
+        #         keypoints = get_keypoints(keypoint_gt)
+        #         print(keypoints)
+        #         keypoints_gt.append(keypoints)
+        #         cv2.circle(img, keypoints[0], 1, gt_color, 1)
+        #         cv2.circle(img, keypoints[0], 10, gt_color, 1)
+        #         cv2.circle(img, keypoints[1], 1, gt_color, 1)
+        #         cv2.circle(img, keypoints[1], 10, gt_color, 1)
+
+
+
+        # for preds in predictions:
+        # #     print('preds:', preds)
+        #     for p in preds:
+        # #         print('p', p)
+        #         keypoints_pred = p['keypoints']
+        #         keypoint_scores = p['keypoint_scores']
+        #         # print('keypoints:', keypoints_pred)
+        #         # print('keypoint_scores:', keypoint_scores)
+
+        #         keypoint_exist = False
+        #         for ks in keypoint_scores:
+        #             if ks > 0.5: keypoint_exist = True
+
+        #         if keypoint_exist:
+        #             kp1 = [int(x + 0.5) for x in keypoints_pred[0]]
+        #             kp2 = [int(x + 0.5) for x in keypoints_pred[1]]
+        #             print('keypoint_scores:', keypoint_scores)
+        #             print('predictions:', kp1, kp2)
+        #             cv2.circle(img, kp1, 2, pred_color, -1)
+        #             cv2.circle(img, kp1, 10, pred_color, 1)
+        #             cv2.circle(img, kp2, 2, pred_color, -1)
+        #             cv2.circle(img, kp2, 10, pred_color, 1)
+        #             keypoints_pred.append((kp1, kp2))                    
+
+            
+
+
+
+        # if args.round2flat:
+        #     print('convert keypoint points in round view to flat view')
+        # n_gt = len(keypoints_gt)
+        # n_pred = len(keypoints_pred)
+
+        # for kp_pair in keypoints_gt:
+        #     gt_interval = sorted([x[0] for x in kp_pair])
+        #     print('gt_interval:', gt_interval)
+
+        # for kp_pair in keypoints_pred:
+        #     pred_interval = sorted([x[0] for x in kp_pair])
+        #     print('pred_interval:', pred_interval)
+
+        # cv2.imshow('image', img)
+        # cv2.waitKeyEx(1)
+        # print(img_path, img.shape)
+
+
+        # result_path = osp.join(save_dir, file_name.replace('/', '-'))
+        # print(osp.abspath(result_path))
+        # cv2.imwrite(result_path, img)
+        # print('----------------------------')
+

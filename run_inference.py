@@ -29,7 +29,7 @@ def select_work_dir(work_dir, checkpoint):
         with open(osp.join(chosen_dir, 'last_checkpoint')) as cf:
             pth_path = cf.readline()
     else:
-        with open(osp.join(chosen_dir, 'lest_checkpoint')) as cf:
+        with open(osp.join(chosen_dir, 'best_checkpoint')) as cf:
             pth_path = cf.readline()
     pth = osp.basename(pth_path)
     pth_path = osp.join(chosen_dir, pth)
