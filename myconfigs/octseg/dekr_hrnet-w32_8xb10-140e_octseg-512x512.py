@@ -27,7 +27,7 @@ param_scheduler = [
 auto_scale_lr = dict(base_batch_size=80)
 
 # hooks
-default_hooks = dict(checkpoint=dict(save_best='coco/AP', rule='greater'))
+default_hooks = dict(checkpoint=dict(save_best='coco/AP', rule='greater', max_keep_ckpts=2))
 
 # codec settings
 codec = dict(
@@ -166,7 +166,7 @@ train_dataloader = dict(
         pipeline=train_pipeline,
     ))
 val_dataloader = dict(
-    batch_size=10,
+    batch_size=1,
     num_workers=1,
     persistent_workers=True,
     drop_last=False,
