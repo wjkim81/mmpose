@@ -51,10 +51,10 @@ if __name__ == '__main__':
         help='specify working directory of trainined model')
     parser.add_argument('--checkpoint', type=str, default='last', choices=['last', 'best'],
         help='select which chekpoint will be chosen [last|best]')
-    parser.add_argument('--thr', type=float, default=0.5,
+    parser.add_argument('--threshold', type=float, default=0.3,
         help='the threshold of keypoiont score')
-    parser.add_argument('--correct_range', type=int, default=15,
-        help='the range which include the correct prediction')
+    parser.add_argument('--no_group', action='store_true',
+        help='grouping case')
 
     args = parser.parse_args()
 
@@ -73,7 +73,12 @@ if __name__ == '__main__':
 
     test_dir = osp.join(cfg.test_dataloader.dataset.data_root, cfg.test_dataloader.dataset.data_prefix.img)
     annot_path = osp.join(cfg.test_dataloader.dataset.data_root, cfg.test_dataloader.dataset.ann_file)
-    save_dir = osp.join(rf'../../data/mmpose/results/{cfg.test_dataloader.dataset.type}', configname)
+
+    if args.no_group:
+        save_dir = osp.join(rf'../../data/mmpose/results/{cfg.test_dataloader.dataset.type}', configname)        
+    else:
+        save_dir = osp.join(rf'../../data/mmpose/results-case/{cfg.test_dataloader.dataset.type}', configname)
+        
     os.makedirs(save_dir, exist_ok=True)
 
     with open(annot_path, 'r') as json_file:
@@ -98,6 +103,7 @@ if __name__ == '__main__':
         img_id = img_data['id']
 
         img_path = osp.join(test_dir, file_name)
+        case, fn = file_name.split('/')
         img_fn = file_name.replace('/', '-')
 
         img = cv2.imread(img_path, cv2.IMREAD_COLOR)
@@ -127,7 +133,7 @@ if __name__ == '__main__':
 
                 keypoint_exist = False
                 for ks in keypoint_scores:
-                    if ks > 0.5: keypoint_exist = True
+                    if ks > args.threshold: keypoint_exist = True
 
                 if keypoint_exist:
                     kp1 = [int(x + 0.5) for x in keypoints_pred[0]]
@@ -174,7 +180,13 @@ if __name__ == '__main__':
         print(img_path, img.shape)
 
 
-        result_path = osp.join(save_dir, file_name.replace('/', '-'))
+        if args.no_group:
+            result_path = osp.join(save_dir, file_name.replace('/', '-'))
+        else:
+            case_dir = osp.join(save_dir, case)
+            os.makedirs(case_dir, exist_ok=True)
+            result_path = osp.join(case_dir, fn)
+        
         print(osp.abspath(result_path))
         cv2.imwrite(result_path, img)
         print('----------------------------')
