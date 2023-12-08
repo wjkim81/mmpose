@@ -313,8 +313,8 @@ class OCTSB1(BaseBackbone):
         # lumen_config_path = lumen_cfg['config_path']
         lumen_checkpoint_path = lumen_cfg['checkpoint_path']
         # print('lumen config_path:', osp.abspath(lumen_config_path))
-        print('lumen checkpoint_path:', osp.abspath(lumen_checkpoint_path))
-        print('Initializing lumen segmentation model')
+        # print('lumen checkpoint_path:', osp.abspath(lumen_checkpoint_path))
+        # print('Initializing lumen segmentation model')
         
         # self.lumen_net = init_seg_model(lumen_config_path, lumen_checkpoint_path)
         self.lumen_net = torch.jit.load(lumen_checkpoint_path, map_location=torch.device('cuda'))
