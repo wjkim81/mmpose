@@ -10,9 +10,9 @@ import numpy as np
 from mmengine.config import Config
 from mmpose.apis import MMPoseInferencer
 
-from mycommon.warping import point_polar_to_cart
-from mycommon.utils import draw_img_with_mask
-from mycommon.utils import select_work_dir
+from octmodules.warping import point_cart_to_polar
+from octmodules.mmutils import draw_img_with_mask
+from octmodules.mmutils import mm_select_work_dir
 
 def get_keypoints(keypoint_list):
     pt1 = keypoint_list[0:2]
@@ -22,7 +22,7 @@ def get_keypoints(keypoint_list):
 def warp_keypoints_to_cart(keypoints, img_sz):
     cart_keypoints = []
     for kp in keypoints:
-        cart_keypoints.append(point_polar_to_cart(kp, img_sz))
+        cart_keypoints.append(point_cart_to_polar(kp, img_sz, img_sz[1]))
 
     return cart_keypoints
 
@@ -47,7 +47,7 @@ if __name__ == '__main__':
     gt_color = (0, 255, 0)
     guidewire_color = (0, 0, 255)
 
-    config_path, pth_path = select_work_dir(args.work_dir, args.checkpoint)
+    config_path, pth_path = mm_select_work_dir(args.work_dir, args.checkpoint)
     configname = osp.splitext(osp.basename(config_path))[0]
     cfg = Config.fromfile(config_path)
     # print(cfg.test_dataloader)
@@ -67,7 +67,8 @@ if __name__ == '__main__':
 
     test_dir = osp.join(cfg.test_dataloader.dataset.data_root, cfg.test_dataloader.dataset.data_prefix.img)
     annot_path = osp.join(cfg.test_dataloader.dataset.data_root, cfg.test_dataloader.dataset.ann_file)
-    annot_path.replace('round', 'flat')
+    annot_path = annot_path.replace('round', 'flat')
+    print('annot_path:', annot_path)
 
     round2flat = False
     if 'round' in configname:
@@ -149,23 +150,6 @@ if __name__ == '__main__':
             x_ = nz[:, 3].unique()
             x_range = x_.detach().to('cpu').numpy()
 
-            # print('x_range:', x_range )
-
-            # m_np = m.squeeze().detach().to('cpu').numpy()
-            # m_np = m_np.astype(np.uint8) * 255
-
-            # shadow = np.zeros(m_np.shape, dtype=m_np.dtype)
-            # shadow[:, x_range] = 255
-            # vis =np.concatenate([m_np, shadow], axis=1)
-            # cv2.imshow('guidewire shadow', vis)
-            # cv2.waitKey()
-
-            # # print('x_:', x_)
-
-            # m[:, :, :, x_] = 1
-            # guidewire_shadow_mask = m
-            # guidewire_shadow_x = x_
-
             guidewires[i] = x_range
             guidewires_range = x_range
             # m = m.float()
@@ -192,18 +176,18 @@ if __name__ == '__main__':
                     if keypoint_exist:
                         include_keypoint = True
 
-
                         kp1 = [int(x + 0.5) for x in kp_pred[0]]
                         kp2 = [int(x + 0.5) for x in kp_pred[1]]
                         kp_pred = (kp1, kp2)
                         if round2flat:
                             print('Warping predicted keypoints from round to flat')
+                            print('kp_pred:', kp_pred)
                             kp_pred = warp_keypoints_to_cart(kp_pred, flat_img.shape)
 
                         if kp1[1] > kp2[1]:
-                            tmp = kp2[1]
-                            kp2[1] = kp1[1]
-                            kp1[1] = tmp
+                            tmp = kp2
+                            kp2 = kp1
+                            kp1 = tmp
 
                         pred_x_range = list(range(kp1[1], kp2[1]))
                         pred_length = len(pred_x_range)
@@ -238,22 +222,18 @@ if __name__ == '__main__':
                 for ann in annots:
                     include_keypoint = True
 
-
                     keypoint_gt = ann['keypoints']
-                    # print(keypoint_gt)
+                    print('keypoint_gt:', keypoint_gt)
                     keypoints = get_keypoints(keypoint_gt)
 
-                    if round2flat:
-                        print('warping ground truth keypoints from round to flat')
-                        keypoints = warp_keypoints_to_cart(keypoints, flat_img.shape)
-
                     kp1, kp2 = keypoints
+                    print('kp1:', kp1, 'kp2:', kp2)
                     
 
                     if kp1[1] > kp2[1]:
-                        tmp = kp2[1]
-                        kp2[1] = kp1[1]
-                        kp1[1] = tmp
+                        tmp = kp2
+                        kp2 = kp1
+                        kp1 = tmp
 
                     include_keypoint = True
 
@@ -261,10 +241,10 @@ if __name__ == '__main__':
                     gt_length = len(gt_x_range)
 
                     
-                    # remove small length of keypoints
-                    if gt_length < args.keypoint_range:
-                        print(f'{i} small gt keypoint - length: {gt_length}')
-                        include_keypoint = False
+                    # # remove small length of keypoints
+                    # if gt_length < args.keypoint_range:
+                    #     print(f'{i} small gt keypoint - length: {gt_length}')
+                    #     include_keypoint = False
 
                     # print((i, keypoints))
                     if include_keypoint:

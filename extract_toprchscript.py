@@ -12,7 +12,7 @@ from mmengine.config import Config
 from mmpose.apis import init_model
 from mmengine.dataset import Compose, pseudo_collate
 
-from octmodules.utils import mm_select_work_dir
+from octmodules.mmutils import mm_select_work_dir
 
 
 class Model(nn.Module):
@@ -53,7 +53,7 @@ if __name__ == '__main__':
     print(f'Initializing model with {config_path} and {pth_path}')
     model = init_model(config_path, pth_path, device=device)
 
-    # print('model:', model)
+    print('model:', model)
 
     # if args.no_wrapper:
     #     fn = f'{configname}-no_wrapped'
@@ -65,16 +65,19 @@ if __name__ == '__main__':
     # print('pipeline:', pipeline)
     img = np.random.rand(512, 512)
     data_info = dict(img=img)
+    print('dict data_info:', data_info)
     data_info.update(model.dataset_meta)
     print('data_info:', data_info)
 
     data = pipeline(data_info)
     print('data:', data)
+    print('data[inputs].shape:', data['inputs'].shape)
     batch = pseudo_collate([data])
     net = Model(model)
 
     # x = torch.rand(1, 1, args.input_size, args.input_size).to('cuda')
-    x = torch.rand(1, 1, args.input_size, args.input_size)
+    # x = torch.rand(1, 1, args.input_size, args.input_size)
+    x = batch
 
     if args.verbose:
         print(pytorch_model_summary.summary(net, x, max_depth=None, show_parent_layers=True, show_input=True))

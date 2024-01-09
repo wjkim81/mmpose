@@ -11,33 +11,33 @@ from mmengine.config import Config
 from mmpose.apis import inference_topdown, init_model
 from mmpose.apis import MMPoseInferencer
 
+from octmodules.mmutils import mm_select_work_dir
 
+# def select_work_dir(work_dir, checkpoint):
+#     print("work_dir:", osp.abspath(work_dir))
+#     dirs = sorted(os.listdir(work_dir))
 
-def select_work_dir(work_dir, checkpoint):
-    print("work_dir:", osp.abspath(work_dir))
-    dirs = sorted(os.listdir(work_dir))
+#     for i, d in enumerate(dirs, 0):
+#         print("({}) {}".format(i, d))
+#     d_idx = input("Select directory that you want to load: ")
 
-    for i, d in enumerate(dirs, 0):
-        print("({}) {}".format(i, d))
-    d_idx = input("Select directory that you want to load: ")
+#     path_opt = dirs[int(d_idx)]
+#     chosen_dir = osp.abspath(os.path.join(work_dir, path_opt))
+#     config_path = glob.glob(osp.join(chosen_dir, '*.py'))[0]
 
-    path_opt = dirs[int(d_idx)]
-    chosen_dir = osp.abspath(os.path.join(work_dir, path_opt))
-    config_path = glob.glob(osp.join(chosen_dir, '*.py'))[0]
+#     if checkpoint == 'last':
+#         with open(osp.join(chosen_dir, 'last_checkpoint')) as cf:
+#             pth_path = cf.readline()
+#     else:
+#         with open(osp.join(chosen_dir, 'best_checkpoint')) as cf:
+#             pth_path = cf.readline()
+#     pth = osp.basename(pth_path)
+#     pth_path = osp.join(chosen_dir, pth)
 
-    if checkpoint == 'last':
-        with open(osp.join(chosen_dir, 'last_checkpoint')) as cf:
-            pth_path = cf.readline()
-    else:
-        with open(osp.join(chosen_dir, 'best_checkpoint')) as cf:
-            pth_path = cf.readline()
-    pth = osp.basename(pth_path)
-    pth_path = osp.join(chosen_dir, pth)
+#     print('config_path:', config_path)
+#     print('pth_path:', pth_path)
 
-    print('config_path:', config_path)
-    print('pth_path:', pth_path)
-
-    return config_path, pth_path
+#     return config_path, pth_path
 
 def get_keypoints(keypoint_list):
     pt1 = keypoint_list[0:2]
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     pred_color = (255, 0, 0)
     gt_color = (0, 255, 0)
 
-    config_path, pth_path = select_work_dir(args.work_dir, args.checkpoint)
+    config_path, pth_path = mm_select_work_dir(args.work_dir, args.checkpoint)
     configname = osp.splitext(osp.basename(config_path))[0]
     cfg = Config.fromfile(config_path)
     # print(cfg.test_dataloader)

@@ -62,7 +62,6 @@ if __name__ == '__main__':
     
     # # init model and load checkpoint
     print(f'Initializing model with {config_path} and {pth_path}')
-    # model = init_model(config_path, pth_path, device='cuda')
     inferencer = MMPoseInferencer(pose2d=config_path, pose2d_weights=pth_path, device=device)
 
     test_dir = osp.join(cfg.test_dataloader.dataset.data_root, cfg.test_dataloader.dataset.data_prefix.img)
@@ -149,23 +148,6 @@ if __name__ == '__main__':
             x_ = nz[:, 3].unique()
             x_range = x_.detach().to('cpu').numpy()
 
-            # print('x_range:', x_range )
-
-            # m_np = m.squeeze().detach().to('cpu').numpy()
-            # m_np = m_np.astype(np.uint8) * 255
-
-            # shadow = np.zeros(m_np.shape, dtype=m_np.dtype)
-            # shadow[:, x_range] = 255
-            # vis =np.concatenate([m_np, shadow], axis=1)
-            # cv2.imshow('guidewire shadow', vis)
-            # cv2.waitKey()
-
-            # # print('x_:', x_)
-
-            # m[:, :, :, x_] = 1
-            # guidewire_shadow_mask = m
-            # guidewire_shadow_x = x_
-
             guidewires[i] = x_range
             guidewires_range = x_range
             # m = m.float()
@@ -175,7 +157,7 @@ if __name__ == '__main__':
             result = next(result_generator)
             predictions = result['predictions']
 
-            # Keypoints predictions in flat view
+            # Keypoints ground truth in flat view
             gt_x_range = []
             if img_id in annot_dict:
                 annots = annot_dict[img_id]
@@ -183,13 +165,11 @@ if __name__ == '__main__':
                 for ann in annots:
                     include_keypoint = True
 
-
                     keypoint_gt = ann['keypoints']
                     keypoints = get_keypoints(keypoint_gt)
 
                     kp1, kp2 = keypoints
                     
-
                     if kp1[1] > kp2[1]:
                         tmp = kp2
                         kp2 = kp1
@@ -200,7 +180,6 @@ if __name__ == '__main__':
                     gt_x_range = list(range(kp1[1], kp2[1]))
                     gt_length = len(gt_x_range)
 
-                    
                     # remove small length of keypoints
                     if gt_length < args.keypoint_range:
                         print(f'{i} small gt keypoint - length: {gt_length}')
@@ -209,66 +188,6 @@ if __name__ == '__main__':
                     # print((i, keypoints))
                     if include_keypoint:
                         keypoints_gt[i] = keypoints
-            
-            # keypoint prediction in flat view
-            for preds in predictions:
-            #     print('preds:', preds)
-                for p in preds:
-            #         print('p', p)
-                    kp_pred = p['keypoints']
-                    kp_scores = p['keypoint_scores']
-                    # print('keypoints:', keypoints_pred)
-                    # print('keypoint_scores:', keypoint_scores)
-
-                    keypoint_exist = False
-                    for ks in kp_scores:
-                        if ks > args.threshold: keypoint_exist = True
-
-                    if keypoint_exist:
-                        include_keypoint = True
-
-
-                        kp1 = [int(x + 0.5) for x in kp_pred[0]]
-                        kp2 = [int(x + 0.5) for x in kp_pred[1]]
-                        kp_pred = (kp1, kp2)
-                        if round2flat:
-                            print('Warping predicted keypoints from round to flat')
-                            kp_pred = warp_keypoints_to_cart(kp_pred, flat_img.shape)
-
-                        if kp1[1] > kp2[1]:
-                            tmp = kp2
-                            kp2 = kp1
-                            kp1 = tmp
-
-                        pred_x_range = list(range(kp1[1], kp2[1]))
-                        pred_length = len(pred_x_range)
-
-                        # remove small length of keypoints
-                        if pred_length < args.keypoint_range:
-                            print(f'{i} small prediction keypoint - length: {pred_length}')
-                            include_keypoint = False
-
-                        # check whether kp_pred in guidewire shadow
-                        duplicate_guidewire_len = len(set(pred_x_range) & set(guidewires_range))
-                        if pred_length == 0:
-                            pred_length = 1
-                        duplicate_guidewire_ratio = duplicate_guidewire_len / pred_length
-                    
-                        if duplicate_guidewire_ratio > args.guidewire_threshold:
-                            print('n duplicate:', duplicate_guidewire_len)
-                            print('n duplicate_ratio:', duplicate_guidewire_ratio)
-                            print('pred_x_range:', pred_x_range)
-                            print('guidewires_range:', guidewires_range)
-                            print('deuplicating with guidewires')
-                            include_keypoint = False
-
-                        duplicate_gt_len = len(set(pred_x_range) & set(gt_x_range))
-                        if duplicate_gt_len == 0:
-                            print('*** no duplication with gt')
-                            include_keypoint = False
-                        
-                        if include_keypoint:
-                            keypoints_pred[i] = kp_pred
             
             img_volume.append(np.expand_dims(flat_img, axis=0))
 
@@ -305,12 +224,6 @@ if __name__ == '__main__':
                 pt2 = (kp_gt[1][1], i)
                 gt_mask[i, kp_gt[0][1]:kp_gt[1][1]] = 1
             
-            if i in keypoints_pred:
-                kp_pred = keypoints_pred[i]
-                pt1 = (kp_pred[0][1], i)
-                pt2 = (kp_pred[1][1], i)
-                pred_mask[i, kp_pred[0][1]:kp_pred[1][1]] = 1
-            
             if i in guidewires:
                 x_ = guidewires[i]
                 guidewire_mask[i, x_] = 1
@@ -341,8 +254,8 @@ if __name__ == '__main__':
         # cv2.imwrite(result_path, img)
         # print('----------------------------')
 
-        result_path = osp.join(save_dir, f'{case}.png')
-        print(f'saving image volume making on {result_path}')
+        # result_path = osp.join(save_dir, f'{case}.png')
+        # print(f'saving image volume making on {result_path}')
 
-        cv2.imwrite(result_path, img_vis)
+        # cv2.imwrite(result_path, img_vis)
 
