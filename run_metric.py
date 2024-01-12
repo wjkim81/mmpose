@@ -215,7 +215,7 @@ if __name__ == '__main__':
                         if include_keypoint:
                             keypoints_pred[i] = kp_pred
 
-            # Keypoints predictions in flat view
+            # Keypoints ground truth in flat view
             if img_id in annot_dict:
                 annots = annot_dict[img_id]
 
