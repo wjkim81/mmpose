@@ -132,17 +132,21 @@ if __name__ == '__main__':
 
         image_flat_list = annot_flat_data['images']
         annot_flat_list = annot_flat_data['annotations']
+        categories_flat_list = annot_flat_data['annotations']
 
         image_round_list = annot_round_data['images']
         annot_round_list = annot_round_data['annotations']
+        categories_round_list = annot_round_data['annotations']
 
         bigsb_flat_annot_dict = {
             'images': image_flat_list,
-            'annotations': []
+            'annotations': [],
+            'categories': categories_flat_list
         }
         bigsb_round_annot_dict = {
             'images': image_round_list,
-            'annotations': []
+            'annotations': [],
+            'categories': categories_round_list
         }
         annot_flat_dict = {}
         annot_round_dict = {}
@@ -324,7 +328,10 @@ if __name__ == '__main__':
 
                         # print((i, keypoints))
                         if include_keypoint:
-                            keypoints_gt[i] = keypoints
+                            keypoints_gt[i] = {
+                                'keypoints': keypoints,
+                                'keypoints_length': gt_length
+                            }
                             included_index.append(i)
                             keypoints_flat_annot[i] = ann_flat
                             keypoints_round_annot[i] = ann_round
@@ -379,7 +386,7 @@ if __name__ == '__main__':
             # Here remove one frame keypoints
             for i in range(nf):
                 if i in keypoints_gt:
-                    kp_gt = keypoints_gt[i]
+                    kp_gt = keypoints_gt[i]['keypoints']
                     # pt1 = (kp_gt[0][1], i)
                     # pt2 = (kp_gt[1][1], i)
                     print(f'{i} = {kp_gt[0][0]} - {kp_gt[1][0]}')

@@ -2,4 +2,8 @@
 from .base_coco_style_dataset import BaseCocoStyleDataset
 from .base_mocap_dataset import BaseMocapDataset
 
-__all__ = ['BaseCocoStyleDataset', 'BaseMocapDataset']
+from .base_coco_style_vol_dataset import BaseCocoStyleVolDataset
+
+__all__ = ['BaseCocoStyleDataset', 'BaseMocapDataset', 
+           'BaseCocoStyleVolDataset'
+           ]
