@@ -194,23 +194,45 @@ class BaseCocoStyleVolDataset(BaseDataset):
                     instance_list, image_list)
 
         case_list = []
-        case_dict_list = {}
+        cases = {}
+        case_id = 0
+        curr_id = 0
+        checked_case = []
         for img_data in data_list:
-            case = img_data['case']
+            case = img_data['case'][0]
             # print('case:', case)
 
-            if case[0] not in case_dict_list:
-                case_dict_list[case[0]] = [img_data]
-            else:
-                case_dict_list[case[0]].append(img_data)
+            if case not in checked_case:
+            # if curr_id not in cases:
+                img_data['case_id'] = case_id
+                cases[case_id] = {
+                    'case_id': case_id,
+                    'case': case[0],
+                    'images': [],
+                    'case_length': 0
+                }
+                # [img_data]
+                # cases[case[0]] = [img_data]
+                curr_id = case_id
+                case_id += 1
+                checked_case.append(case)
+            # else:
+            # cases[case[0]].append(img_data)
+            cases[curr_id]['images'].append(img_data)
+            cases[curr_id]['case_length'] += 1
 
-        for case, img_list in case_dict_list.items():
-            case_list.append(img_list)
+        # for case, img_list in case_dict_list.items():
+        #     case_list.append(img_list)
+                
+        # for i, (case, img_list) in enumerate(cases.items()):
 
 
+        data_case_list = [c for c in cases.values()]
+
+        return data_case_list
         # which one?????
         # return data_list
-        return case_list
+        # return case_list
         # return case_dict_list
 
     def _load_annotations(self) -> Tuple[List[dict], List[dict]]:
@@ -481,62 +503,54 @@ class BaseCocoStyleVolDataset(BaseDataset):
 
         return data_list
 
-    # def _serialize_data(self) -> Tuple[np.ndarray, np.ndarray]:
-    #     """Serialize ``self.data_list`` to save memory when launching multiple
-    #     workers in data loading. This function will be called in ``full_init``.
+   
+    # def prepare_data(self, idx) -> Any:
+    #     """Get date processed by ``self.pipeline``. Note that ``idx`` is a
+    #     video index in default since the base element of video dataset is a
+    #     video. However, in some cases, we need to specific both the video index
+    #     and frame index. For example, in traing mode, we may want to sample the
+    #     specific frames and all the frames must be sampled once in a epoch; in
+    #     test mode, we may want to output data of a single image rather than the
+    #     whole video for saving memory.
 
-    #     Hold memory using serialized objects, and data loader workers can use
-    #     shared RAM from master process instead of making a copy.
+    #     Args:
+    #         idx (int): The index of ``data_info``.
 
     #     Returns:
-    #         Tuple[np.ndarray, np.ndarray]: Serialized result and corresponding
-    #         address.
+    #         Any: Depends on ``self.pipeline``.
     #     """
+    #     if isinstance(idx, tuple):
+    #         assert len(idx) == 2, 'The length of idx must be 2: '
+    #         '(video_index, frame_index)'
+    #         video_idx, frame_idx = idx[0], idx[1]
+    #     else:
+    #         video_idx, frame_idx = idx, None
 
-    #     def _serialize(data):
-    #         buffer = pickle.dumps(data, protocol=4)
-    #         return np.frombuffer(buffer, dtype=np.uint8)
+    #     data_info = self.get_data_info(video_idx)
+    #     if self.test_mode:
+    #         # Support two test_mode: frame-level and video-level
+    #         final_data_info = defaultdict(list)
+    #         if frame_idx is None:
+    #             frames_idx_list = list(range(data_info['video_length']))
+    #         else:
+    #             frames_idx_list = [frame_idx]
+    #         for index in frames_idx_list:
+    #             frame_ann = data_info['images'][index]
+    #             frame_ann['video_id'] = data_info['video_id']
+    #             # Collate data_list (list of dict to dict of list)
+    #             for key, value in frame_ann.items():
+    #                 final_data_info[key].append(value)
+    #             # copy the info in video-level into img-level
+    #             # TODO: the value of this key is the same as that of
+    #             # `video_length` in test mode
+    #             final_data_info['ori_video_length'].append(
+    #                 data_info['video_length'])
 
-    #     # Serialize data information list avoid making multiple copies of
-    #     # `self.data_list` when iterate `import torch.utils.data.dataloader`
-    #     # with multiple workers.
-    #     data_list = [_serialize(x) for x in self.data_list]
-    #     address_list = np.asarray([len(x) for x in data_list], dtype=np.int64)
-    #     data_address: np.ndarray = np.cumsum(address_list)
-    #     # TODO Check if np.concatenate is necessary
-    #     data_bytes = np.concatenate(data_list)
-    #     # Empty cache for preventing making multiple copies of
-    #     # `self.data_info` when loading data multi-processes.
-    #     self.data_list.clear()
-    #     gc.collect()
-    #     return data_bytes, data_address
-    
-
-    @force_full_init
-    def get_data_info(self, idx: int) -> dict:
-        """Get annotation by index and automatically call ``full_init`` if the
-        dataset has not been fully initialized.
-
-        Args:
-            idx (int): The index of data.
-
-        Returns:
-            dict: The idx-th annotation of the dataset.
-        """
-
-        if self.serialize_data:
-            start_addr = 0 if idx == 0 else self.data_address[idx - 1].item()
-            end_addr = self.data_address[idx].item()
-            bytes = memoryview(
-                self.data_bytes[start_addr:end_addr])  # type: ignore
-            data_info = pickle.loads(bytes)  # type: ignore
-        else:
-            data_info = copy.deepcopy(self.data_list[idx])
-        # Some codebase needs `sample_idx` of data information. Here we convert
-        # the idx to a positive number and save it in data information.
-        if idx >= 0:
-            data_info['sample_idx'] = idx
-        else:
-            data_info['sample_idx'] = len(self) + idx
-
-        return data_info
+    #         final_data_info['video_length'] = [len(frames_idx_list)
+    #                                            ] * len(frames_idx_list)
+    #         return self.pipeline(final_data_info)
+    #     else:
+    #         # Specify `key_frame_id` for the frame sampling in the pipeline
+    #         if frame_idx is not None:
+    #             data_info['key_frame_id'] = frame_idx
+    #         return self.pipeline(data_info)
