@@ -15,7 +15,10 @@ from mmpose.registry import DATASETS
 from mmpose.structures.bbox import bbox_xywh2xyxy
 from ..utils import parse_pose_metainfo
 
+from collections import defaultdict
+import random
 import pickle
+import gc
 
 @DATASETS.register_module()
 class BaseCocoStyleVolDataset(BaseDataset):
@@ -134,23 +137,23 @@ class BaseCocoStyleVolDataset(BaseDataset):
             metainfo = parse_pose_metainfo(metainfo)
         return metainfo
 
-    @force_full_init
-    def prepare_data(self, idx) -> Any:
-        """Get data processed by ``self.pipeline``.
+    # @force_full_init
+    # def prepare_data(self, idx) -> Any:
+    #     """Get data processed by ``self.pipeline``.
 
-        :class:`BaseCocoStyleDataset` overrides this method from
-        :class:`mmengine.dataset.BaseDataset` to add the metainfo into
-        the ``data_info`` before it is passed to the pipeline.
+    #     :class:`BaseCocoStyleDataset` overrides this method from
+    #     :class:`mmengine.dataset.BaseDataset` to add the metainfo into
+    #     the ``data_info`` before it is passed to the pipeline.
 
-        Args:
-            idx (int): The index of ``data_info``.
+    #     Args:
+    #         idx (int): The index of ``data_info``.
 
-        Returns:
-            Any: Depends on ``self.pipeline``.
-        """
-        data_info = self.get_data_info(idx)
+    #     Returns:
+    #         Any: Depends on ``self.pipeline``.
+    #     """
+    #     data_info = self.get_data_info(idx)
 
-        return self.pipeline(data_info)
+    #     return self.pipeline(data_info)
 
     def get_data_info(self, idx: int) -> dict:
         """Get data info by index.
@@ -207,7 +210,7 @@ class BaseCocoStyleVolDataset(BaseDataset):
                 img_data['case_id'] = case_id
                 cases[case_id] = {
                     'case_id': case_id,
-                    'case': case[0],
+                    'case': case,
                     'images': [],
                     'case_length': 0
                 }
@@ -227,13 +230,10 @@ class BaseCocoStyleVolDataset(BaseDataset):
         # for i, (case, img_list) in enumerate(cases.items()):
 
 
-        data_case_list = [c for c in cases.values()]
+        # data_case_list = [c for c in cases.values()]
 
-        return data_case_list
-        # which one?????
-        # return data_list
-        # return case_list
-        # return case_dict_list
+        # return data_case_list
+        return data_list
 
     def _load_annotations(self) -> Tuple[List[dict], List[dict]]:
         """Load data from annotations in COCO format."""
@@ -503,6 +503,35 @@ class BaseCocoStyleVolDataset(BaseDataset):
 
         return data_list
 
+    @force_full_init
+    def prepare_data(self, idx) -> Any:
+        """Get data processed by ``self.pipeline``.
+
+        :class:`BaseCocoStyleDataset` overrides this method from
+        :class:`mmengine.dataset.BaseDataset` to add the metainfo into
+        the ``data_info`` before it is passed to the pipeline.
+
+        Args:
+            idx (int): The index of ``data_info``.
+
+        Returns:
+            Any: Depends on ``self.pipeline``.
+        """
+        data_info_list = []
+        if idx > len(self.data_list) - self.n_frames:
+            idx -= self.n_frames
+        for i in range(idx, idx+self.n_frames):
+            data_frame_info = self.get_data_info(i)
+            data_info_list.append(self.pipeline(data_frame_info))
+        
+        return data_info_list
+        
+        
+        
+        # data_info = self.get_data_info(idx)
+
+        # return self.pipeline(data_info)
+    
    
     # def prepare_data(self, idx) -> Any:
     #     """Get date processed by ``self.pipeline``. Note that ``idx`` is a
@@ -551,6 +580,44 @@ class BaseCocoStyleVolDataset(BaseDataset):
     #         return self.pipeline(final_data_info)
     #     else:
     #         # Specify `key_frame_id` for the frame sampling in the pipeline
+    #         data_info_list = []
     #         if frame_idx is not None:
-    #             data_info['key_frame_id'] = frame_idx
-    #         return self.pipeline(data_info)
+    #             data_info['images']['key_frame_id'] = frame_idx
+                
+    #         si = random.randint(0, data_info['case_length'] - self.n_frames)
+    #         for i in range(si, si+self.n_frames):
+    #             data_frame_info = self.get_data_info(data_info['images'][i])
+    #             data_info_list.append(self.pipeline(data_frame_info['images'][i]))
+    #         # return self.pipeline(data_info)
+
+    #         return data_info_list
+
+    # def _serialize_data(self) -> Tuple[np.ndarray, np.ndarray]:
+    #     """Serialize ``self.data_list`` to save memory when launching multiple
+    #     workers in data loading. This function will be called in ``full_init``.
+
+    #     Hold memory using serialized objects, and data loader workers can use
+    #     shared RAM from master process instead of making a copy.
+
+    #     Returns:
+    #         Tuple[np.ndarray, np.ndarray]: Serialized result and corresponding
+    #         address.
+    #     """
+
+    #     def _serialize(data):
+    #         buffer = pickle.dumps(data, protocol=4)
+    #         return np.frombuffer(buffer, dtype=np.uint8)
+
+    #     # Serialize data information list avoid making multiple copies of
+    #     # `self.data_list` when iterate `import torch.utils.data.dataloader`
+    #     # with multiple workers.
+    #     data_list = [_serialize(x) for x in self.data_list]
+    #     address_list = np.asarray([len(x) for x in data_list], dtype=np.int64)
+    #     data_address: np.ndarray = np.cumsum(address_list)
+    #     # TODO Check if np.concatenate is necessary
+    #     data_bytes = np.concatenate(data_list)
+    #     # Empty cache for preventing making multiple copies of
+    #     # `self.data_info` when loading data multi-processes.
+    #     self.data_list.clear()
+    #     gc.collect()
+    #     return data_bytes, data_address
