@@ -44,8 +44,6 @@ model = dict(
     type='BottomupPoseEstimator',
     data_preprocessor=dict(
         type='VolDataPreprocessor',
-        # mean=[123.675, 116.28, 103.53],
-        # std=[58.395, 57.12, 57.375],
         mean=[0],
         std=[255]
         # bgr_to_rgb=True
@@ -125,7 +123,7 @@ find_unused_parameters = True
 dataset_type = 'OCTSegVolDataset'
 data_mode = 'bottomup'
 data_root = '../../data/datasets/octseg/'
-# n_frames = 5
+n_frames = 5
 
 # pipelines
 train_pipeline = [
@@ -165,7 +163,7 @@ train_dataloader = dict(
         ann_file='v0-big-sidebranch_round_train.json',
         data_prefix=dict(img='train/round/'),
         pipeline=train_pipeline,
-        # n_frames=n_frames
+        n_frames=n_frames
     ))
 val_dataloader = dict(
     batch_size=1,
@@ -181,7 +179,7 @@ val_dataloader = dict(
         data_prefix=dict(img='test/round/'),
         test_mode=True,
         pipeline=val_pipeline,
-        # n_frames=n_frames
+        n_frames=n_frames
     ))
 test_dataloader = dict(
     batch_size=1,
@@ -197,7 +195,7 @@ test_dataloader = dict(
         data_prefix=dict(img='test/round/'),
         test_mode=True,
         pipeline=val_pipeline,
-        # n_frames=n_frames
+        n_frames=n_frames
     ))
 
 # evaluators
