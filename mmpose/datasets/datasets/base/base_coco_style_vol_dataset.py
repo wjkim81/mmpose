@@ -137,23 +137,6 @@ class BaseCocoStyleVolDataset(BaseDataset):
             metainfo = parse_pose_metainfo(metainfo)
         return metainfo
 
-    # @force_full_init
-    # def prepare_data(self, idx) -> Any:
-    #     """Get data processed by ``self.pipeline``.
-
-    #     :class:`BaseCocoStyleDataset` overrides this method from
-    #     :class:`mmengine.dataset.BaseDataset` to add the metainfo into
-    #     the ``data_info`` before it is passed to the pipeline.
-
-    #     Args:
-    #         idx (int): The index of ``data_info``.
-
-    #     Returns:
-    #         Any: Depends on ``self.pipeline``.
-    #     """
-    #     data_info = self.get_data_info(idx)
-
-    #     return self.pipeline(data_info)
 
     def get_data_info(self, idx: int) -> dict:
         """Get data info by index.
@@ -224,16 +207,10 @@ class BaseCocoStyleVolDataset(BaseDataset):
             cases[curr_id]['images'].append(img_data)
             cases[curr_id]['case_length'] += 1
 
-        # for case, img_list in case_dict_list.items():
-        #     case_list.append(img_list)
-                
-        # for i, (case, img_list) in enumerate(cases.items()):
+        data_case_list = [c for c in cases.values()]
 
-
-        # data_case_list = [c for c in cases.values()]
-
-        # return data_case_list
-        return data_list
+        return data_case_list
+        # return data_list
 
     def _load_annotations(self) -> Tuple[List[dict], List[dict]]:
         """Load data from annotations in COCO format."""
@@ -275,7 +252,7 @@ class BaseCocoStyleVolDataset(BaseDataset):
 
     def parse_data_info(self, raw_data_info: dict) -> Optional[dict]:
         """Parse raw COCO annotation of an instance.
-
+get_da
         Args:
             raw_data_info (dict): Raw data information loaded from
                 ``ann_file``. It should have following contents:
@@ -503,13 +480,38 @@ class BaseCocoStyleVolDataset(BaseDataset):
 
         return data_list
 
-    @force_full_init
-    def prepare_data(self, idx) -> Any:
-        """Get data processed by ``self.pipeline``.
+    # @force_full_init
+    # def prepare_data(self, idx) -> Any:
+    #     """Get data processed by ``self.pipeline``.
 
-        :class:`BaseCocoStyleDataset` overrides this method from
-        :class:`mmengine.dataset.BaseDataset` to add the metainfo into
-        the ``data_info`` before it is passed to the pipeline.
+    #     :class:`BaseCocoStyleDataset` overrides this method from
+    #     :class:`mmengine.dataset.BaseDataset` to add the metainfo into
+    #     the ``data_info`` before it is passed to the pipeline.
+
+    #     Args:
+    #         idx (int): The index of ``data_info``.
+
+    #     Returns:
+    #         Any: Depends on ``self.pipeline``.
+    #     """
+    #     data_info_list = []
+    #     if idx > len(self.data_list) - self.n_frames:
+    #         idx -= self.n_frames
+    #     for i in range(idx, idx+self.n_frames):
+    #         data_frame_info = self.get_data_info(i)
+    #         data_info_list.append(self.pipeline(data_frame_info))
+        
+    #     return data_info_list
+    
+
+    def prepare_data(self, idx) -> Any:
+        """Get date processed by ``self.pipeline``. Note that ``idx`` is a
+        video index in default since the base element of video dataset is a
+        video. However, in some cases, we need to specific both the video index
+        and frame index. For example, in traing mode, we may want to sample the
+        specific frames and all the frames must be sampled once in a epoch; in
+        test mode, we may want to output data of a single image rather than the
+        whole video for saving memory.
 
         Args:
             idx (int): The index of ``data_info``.
@@ -517,11 +519,38 @@ class BaseCocoStyleVolDataset(BaseDataset):
         Returns:
             Any: Depends on ``self.pipeline``.
         """
-        data_info_list = []
-        if idx > len(self.data_list) - self.n_frames:
-            idx -= self.n_frames
-        for i in range(idx, idx+self.n_frames):
-            data_frame_info = self.get_data_info(i)
-            data_info_list.append(self.pipeline(data_frame_info))
-        
-        return data_info_list
+        if isinstance(idx, tuple):
+            assert len(idx) == 2, 'The length of idx must be 2: '
+            '(video_index, frame_index)'
+            video_idx, frame_idx = idx[0], idx[1]
+        else:
+            video_idx, frame_idx = idx, None
+
+        data_info = self.get_data_info(video_idx)
+        if self.test_mode:
+            # Support two test_mode: frame-level and video-level
+            final_data_info = defaultdict(list)
+            if frame_idx is None:
+                frames_idx_list = list(range(data_info['video_length']))
+            else:
+                frames_idx_list = [frame_idx]
+            for index in frames_idx_list:
+                frame_ann = data_info['images'][index]
+                frame_ann['video_id'] = data_info['video_id']
+                # Collate data_list (list of dict to dict of list)
+                for key, value in frame_ann.items():
+                    final_data_info[key].append(value)
+                # copy the info in video-level into img-level
+                # TODO: the value of this key is the same as that of
+                # `video_length` in test mode
+                final_data_info['ori_video_length'].append(
+                    data_info['video_length'])
+
+            final_data_info['video_length'] = [len(frames_idx_list)
+                                               ] * len(frames_idx_list)
+            return self.pipeline(final_data_info)
+        else:
+            # Specify `key_frame_id` for the frame sampling in the pipeline
+            if frame_idx is not None:
+                data_info['key_frame_id'] = frame_idx
+            return self.pipeline(data_info)

@@ -149,23 +149,6 @@ if __name__ == '__main__':
             x_ = nz[:, 3].unique()
             x_range = x_.detach().to('cpu').numpy()
 
-            # print('x_range:', x_range )
-
-            # m_np = m.squeeze().detach().to('cpu').numpy()
-            # m_np = m_np.astype(np.uint8) * 255
-
-            # shadow = np.zeros(m_np.shape, dtype=m_np.dtype)
-            # shadow[:, x_range] = 255
-            # vis =np.concatenate([m_np, shadow], axis=1)
-            # cv2.imshow('guidewire shadow', vis)
-            # cv2.waitKey()
-
-            # # print('x_:', x_)
-
-            # m[:, :, :, x_] = 1
-            # guidewire_shadow_mask = m
-            # guidewire_shadow_x = x_
-
             guidewires[i] = x_range
             guidewires_range = x_range
             # m = m.float()

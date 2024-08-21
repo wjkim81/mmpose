@@ -116,20 +116,13 @@ if __name__ == '__main__':
         
         predictions = result['predictions']
 
-        print('**************************')
-        # print('predictions:', predictions)
-
         print('>>>>>>>>>>>>>>>>>>>>>>>>>>')
         keypoints_pred = []
         keypoints_gt = []
         for preds in predictions:
-        #     print('preds:', preds)
             for p in preds:
-        #         print('p', p)
                 keypoints_pred = p['keypoints']
                 keypoint_scores = p['keypoint_scores']
-                # print('keypoints:', keypoints_pred)
-                # print('keypoint_scores:', keypoint_scores)
 
                 keypoint_exist = False
                 for ks in keypoint_scores:
